@@ -45,6 +45,11 @@ body {
     text-decoration: none;
 }
 
+.nav-user {
+    color: rgba(255, 255, 255, 0.95);
+    font-size: 0.95rem;
+}
+
 .btn {
     padding: 0.5rem 1rem;
     border: none;

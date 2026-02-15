@@ -9,9 +9,11 @@
 <p><strong>Source:</strong> {{ lead.source }}</p>
 
 <p>
+    {% if current_user.is_admin() %}
     <form method="POST" action="{{ url_for('delete_lead', lead_id=lead.id) }}" style="display:inline">
         <button type="submit" class="btn btn-danger" onclick="return confirm('Delete?')">Delete</button>
     </form>
+    {% endif %}
     <a href="{{ url_for('leads') }}" class="btn btn-primary">Back</a>
 </p>
 {% endblock %}

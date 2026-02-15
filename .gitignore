@@ -12,6 +12,9 @@ env/
 instance/
 .webassets-cache
 
+# SQLite
+*.db
+
 # IDE
 .idea/
 .vscode/

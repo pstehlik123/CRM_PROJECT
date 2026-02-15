@@ -1,29 +1,71 @@
 from flask import Flask, render_template, request, redirect, url_for, flash
-from models import Customer, Lead
+from flask_login import login_required, current_user
+from flask_session import Session
+from models import db, Customer, Lead, User, ROLE_ADMIN, ROLE_USER
+
+from auth import auth_bp, login_manager, admin_required
 
 app = Flask(__name__)
 app.secret_key = 'your-secret-key-change-this'
+app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///crm.db'
+app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
+
+# Session in Datenbank speichern (nicht im Cookie)
+app.config['SESSION_TYPE'] = 'sqlalchemy'
+app.config['SESSION_SQLALCHEMY'] = db
+app.config['SESSION_SQLALCHEMY_TABLE'] = 'sessions'
+app.config['SESSION_PERMANENT'] = True
+
+db.init_app(app)
+Session(app)
+login_manager.init_app(app)
+login_manager.login_view = 'auth.login'
+login_manager.login_message = 'Please log in to access this page.'
+
+app.register_blueprint(auth_bp)
+
 
 def init_sample_data():
-    Customer.add_customer('John Doe', 'john@example.com', 'Acme Corp', '555-0001', 'active')
-    Customer.add_customer('Jane Smith', 'jane@example.com', 'Tech Solutions', '555-0002', 'prospect')
-    Customer.add_customer('Bob Wilson', 'bob@example.com', 'Global Industries', '555-0003', 'inactive')
-    Lead.add_lead('Alice Brown', 'alice@example.com', 'StartUp Inc', 50000, 'Website')
-    Lead.add_lead('Charlie Davis', 'charlie@example.com', 'Enterprise Ltd', 100000, 'Referral')
+    """Create sample data only if database is empty."""
+    with app.app_context():
+        if User.query.count() == 0:
+            admin = User(username='admin', email='admin@crm.local', role=ROLE_ADMIN)
+            admin.set_password('admin')
+            db.session.add(admin)
+            user = User(username='user', email='user@crm.local', role=ROLE_USER)
+            user.set_password('user')
+            db.session.add(user)
+            db.session.commit()
+        if Customer.query.count() == 0 and Lead.query.count() == 0:
+            Customer.add_customer('John Doe', 'john@example.com', 'Acme Corp', '555-0001', 'active')
+            Customer.add_customer('Jane Smith', 'jane@example.com', 'Tech Solutions', '555-0002', 'prospect')
+            Customer.add_customer('Bob Wilson', 'bob@example.com', 'Global Industries', '555-0003', 'inactive')
+            Lead.add_lead('Alice Brown', 'alice@example.com', 'StartUp Inc', 50000, 'Website')
+            Lead.add_lead('Charlie Davis', 'charlie@example.com', 'Enterprise Ltd', 100000, 'Referral')
 
+
+with app.app_context():
+    db.create_all()
 init_sample_data()
+
 
 @app.route('/')
 def index():
-    total_customers = len(Customer.get_all_customers())
-    total_leads = len(Lead.get_all_leads())
+    if not current_user.is_authenticated:
+        return redirect(url_for('auth.login'))
+    total_customers = Customer.query.count()
+    total_leads = Lead.query.count()
     return render_template('index.html', total_customers=total_customers, total_leads=total_leads)
 
+
 @app.route('/customers')
+@login_required
 def customers():
     return render_template('customers.html', customers=Customer.get_all_customers())
 
 @app.route('/customers/add', methods=['GET', 'POST'])
+@login_required
+@admin_required
 def add_customer():
     if request.method == 'POST':
         name = request.form.get('name')
@@ -42,6 +84,7 @@ def add_customer():
     return render_template('add_customer.html')
 
 @app.route('/customers/<int:customer_id>')
+@login_required
 def customer_detail(customer_id):
     customer = Customer.get_customer_by_id(customer_id)
     if not customer:
@@ -50,6 +93,8 @@ def customer_detail(customer_id):
     return render_template('customer_detail.html', customer=customer)
 
 @app.route('/customers/<int:customer_id>/edit', methods=['GET', 'POST'])
+@login_required
+@admin_required
 def edit_customer(customer_id):
     customer = Customer.get_customer_by_id(customer_id)
     if not customer:
@@ -65,16 +110,21 @@ def edit_customer(customer_id):
     return render_template('edit_customer.html', customer=customer)
 
 @app.route('/customers/<int:customer_id>/delete', methods=['POST'])
+@login_required
+@admin_required
 def delete_customer(customer_id):
     Customer.delete_customer(customer_id)
     flash('Customer deleted successfully!', 'success')
     return redirect(url_for('customers'))
 
 @app.route('/leads')
+@login_required
 def leads():
     return render_template('leads.html', leads=Lead.get_all_leads())
 
 @app.route('/leads/add', methods=['GET', 'POST'])
+@login_required
+@admin_required
 def add_lead():
     if request.method == 'POST':
         name = request.form.get('name')
@@ -97,6 +147,7 @@ def add_lead():
     return render_template('add_lead.html')
 
 @app.route('/leads/<int:lead_id>')
+@login_required
 def lead_detail(lead_id):
     lead = Lead.get_lead_by_id(lead_id)
     if not lead:
@@ -105,6 +156,8 @@ def lead_detail(lead_id):
     return render_template('lead_detail.html', lead=lead)
 
 @app.route('/leads/<int:lead_id>/delete', methods=['POST'])
+@login_required
+@admin_required
 def delete_lead(lead_id):
     Lead.delete_lead(lead_id)
     flash('Lead deleted successfully!', 'success')

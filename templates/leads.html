@@ -3,9 +3,11 @@
 {% block content %}
 <h1>Sales Leads</h1>
 
+{% if current_user.is_admin() %}
 <p>
     <a href="{{ url_for('add_lead') }}" class="btn btn-primary">+ Add Lead</a>
 </p>
+{% endif %}
 
 <table class="table">
     <tr>
@@ -23,9 +25,11 @@
         <td>{{ l.source }}</td>
         <td>
             <a href="{{ url_for('lead_detail', lead_id=l.id) }}" class="btn btn-sm btn-primary">View</a>
+            {% if current_user.is_admin() %}
             <form method="POST" action="{{ url_for('delete_lead', lead_id=l.id) }}" style="display:inline">
                 <button type="submit" class="btn btn-sm btn-danger" onclick="return confirm('Delete?')">Delete</button>
             </form>
+            {% endif %}
         </td>
     </tr>
     {% endfor %}
