@@ -32,6 +32,24 @@ def admin_required(f):
     return decorated_view
 
 
+@auth_bp.route("/guest-login", methods=["GET"])
+def guest_login():
+    """Log in as a non-admin guest user without entering credentials."""
+    if current_user.is_authenticated:
+        return redirect(url_for("index"))
+
+    guest = User.get_by_username("guest")
+    if guest is None:
+        guest = User(username="guest", email="guest@crm.local", role=ROLE_USER)
+        guest.set_password("guest")
+        db.session.add(guest)
+        db.session.commit()
+
+    login_user(guest)
+    flash("You are now logged in as Guest.", "success")
+    return redirect(url_for("index"))
+
+
 @auth_bp.route("/login", methods=["GET", "POST"])
 def login():
     if current_user.is_authenticated:

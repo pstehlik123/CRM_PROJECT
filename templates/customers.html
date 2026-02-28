@@ -5,7 +5,7 @@
 
 {% if current_user.is_admin() %}
 <p>
-    <a href="{{ url_for('add_customer') }}" class="btn btn-primary">+ Add Customer</a>
+    <a href="{{ url_for('add_customer') }}" class="btn btn-admin">+ Add Customer</a>
 </p>
 {% endif %}
 
