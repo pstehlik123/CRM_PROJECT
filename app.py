@@ -1,52 +1,36 @@
 from flask import Flask, render_template, request, redirect, url_for, flash
 from flask_login import login_required, current_user
 from flask_session import Session
-from models import db, Customer, Lead, User, ROLE_ADMIN, ROLE_USER
+from models import db, Customer, Lead
 
 from auth import auth_bp, login_manager, admin_required
+from api import api_bp
+from database import init_db
+from flasgger import Swagger
 
 app = Flask(__name__)
-app.secret_key = 'your-secret-key-change-this'
-app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///crm.db'
-app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
+app.secret_key = "your-secret-key-change-this"
+app.config["SQLALCHEMY_DATABASE_URI"] = "sqlite:///crm.db"
+app.config["SQLALCHEMY_TRACK_MODIFICATIONS"] = False
 
 # Session in Datenbank speichern (nicht im Cookie)
-app.config['SESSION_TYPE'] = 'sqlalchemy'
-app.config['SESSION_SQLALCHEMY'] = db
-app.config['SESSION_SQLALCHEMY_TABLE'] = 'sessions'
-app.config['SESSION_PERMANENT'] = True
+app.config["SESSION_TYPE"] = "sqlalchemy"
+app.config["SESSION_SQLALCHEMY"] = db
+app.config["SESSION_SQLALCHEMY_TABLE"] = "sessions"
+app.config["SESSION_PERMANENT"] = True
 
 db.init_app(app)
 Session(app)
 login_manager.init_app(app)
-login_manager.login_view = 'auth.login'
-login_manager.login_message = 'Please log in to access this page.'
+login_manager.login_view = "auth.login"
+login_manager.login_message = "Please log in to access this page."
 
 app.register_blueprint(auth_bp)
+app.register_blueprint(api_bp)
 
+swagger = Swagger(app)
 
-def init_sample_data():
-    """Create sample data only if database is empty."""
-    with app.app_context():
-        if User.query.count() == 0:
-            admin = User(username='admin', email='admin@crm.local', role=ROLE_ADMIN)
-            admin.set_password('admin')
-            db.session.add(admin)
-            user = User(username='user', email='user@crm.local', role=ROLE_USER)
-            user.set_password('user')
-            db.session.add(user)
-            db.session.commit()
-        if Customer.query.count() == 0 and Lead.query.count() == 0:
-            Customer.add_customer('John Doe', 'john@example.com', 'Acme Corp', '555-0001', 'active')
-            Customer.add_customer('Jane Smith', 'jane@example.com', 'Tech Solutions', '555-0002', 'prospect')
-            Customer.add_customer('Bob Wilson', 'bob@example.com', 'Global Industries', '555-0003', 'inactive')
-            Lead.add_lead('Alice Brown', 'alice@example.com', 'StartUp Inc', 50000, 'Website')
-            Lead.add_lead('Charlie Davis', 'charlie@example.com', 'Enterprise Ltd', 100000, 'Referral')
-
-
-with app.app_context():
-    db.create_all()
-init_sample_data()
+init_db(app)
 
 
 @app.route('/')
@@ -162,6 +146,199 @@ def delete_lead(lead_id):
     Lead.delete_lead(lead_id)
     flash('Lead deleted successfully!', 'success')
     return redirect(url_for('leads'))
+
+
+@app.route('/api/customers', methods=['GET'])
+def api_get_customers():
+    """
+    Get all customers
+    ---
+    tags:
+      - Customers
+    produces:
+      - application/json
+    responses:
+      200:
+        description: List of customers
+    """
+    customers = Customer.get_all_customers()
+    data = [
+        {
+            "id": c.id,
+            "name": c.name,
+            "email": c.email,
+            "company": c.company,
+            "phone": c.phone,
+            "status": c.status,
+        }
+        for c in customers
+    ]
+    return jsonify(data)
+
+
+@app.route('/api/customers', methods=['POST'])
+def api_create_customer():
+    """
+    Create a new customer
+    ---
+    tags:
+      - Customers
+    consumes:
+      - application/json
+    produces:
+      - application/json
+    parameters:
+      - in: body
+        name: body
+        required: true
+        schema:
+          type: object
+          properties:
+            name:
+              type: string
+            email:
+              type: string
+            company:
+              type: string
+            phone:
+              type: string
+            status:
+              type: string
+    responses:
+      201:
+        description: Created customer
+      400:
+        description: Invalid input data
+      403:
+        description: Admin access required for creating customers
+    """
+    if not current_user.is_authenticated or not current_user.is_admin():
+        return jsonify({"message": "Admin access required."}), 403
+
+    payload = request.get_json(silent=True) or {}
+    name = payload.get("name")
+    email = payload.get("email")
+    company = payload.get("company")
+    phone = payload.get("phone")
+    status = payload.get("status", "prospect")
+
+    if not all([name, email, company, phone]):
+        return jsonify({"message": "name, email, company and phone are required."}), 400
+
+    customer = Customer.add_customer(name, email, company, phone, status)
+    return (
+        jsonify(
+            {
+                "id": customer.id,
+                "name": customer.name,
+                "email": customer.email,
+                "company": customer.company,
+                "phone": customer.phone,
+                "status": customer.status,
+            }
+        ),
+        201,
+    )
+
+
+@app.route('/api/leads', methods=['GET'])
+def api_get_leads():
+    """
+    Get all leads
+    ---
+    tags:
+      - Leads
+    produces:
+      - application/json
+    responses:
+      200:
+        description: List of leads
+    """
+    leads = Lead.get_all_leads()
+    data = [
+        {
+            "id": l.id,
+            "name": l.name,
+            "email": l.email,
+            "company": l.company,
+            "value": l.value,
+            "source": l.source,
+            "status": l.status,
+        }
+        for l in leads
+    ]
+    return jsonify(data)
+
+
+@app.route('/api/leads', methods=['POST'])
+def api_create_lead():
+    """
+    Create a new lead
+    ---
+    tags:
+      - Leads
+    consumes:
+      - application/json
+    produces:
+      - application/json
+    parameters:
+      - in: body
+        name: body
+        required: true
+        schema:
+          type: object
+          properties:
+            name:
+              type: string
+            email:
+              type: string
+            company:
+              type: string
+            value:
+              type: number
+            source:
+              type: string
+    responses:
+      201:
+        description: Created lead
+      400:
+        description: Invalid input data
+      403:
+        description: Admin access required for creating leads
+    """
+    if not current_user.is_authenticated or not current_user.is_admin():
+        return jsonify({"message": "Admin access required."}), 403
+
+    payload = request.get_json(silent=True) or {}
+    name = payload.get("name")
+    email = payload.get("email")
+    company = payload.get("company")
+    value = payload.get("value")
+    source = payload.get("source")
+
+    if not all([name, email, company, value, source]):
+        return jsonify({"message": "name, email, company, value and source are required."}), 400
+
+    try:
+        value_float = float(value)
+    except (TypeError, ValueError):
+        return jsonify({"message": "value must be a number."}), 400
+
+    lead = Lead.add_lead(name, email, company, value_float, source)
+    return (
+        jsonify(
+            {
+                "id": lead.id,
+                "name": lead.name,
+                "email": lead.email,
+                "company": lead.company,
+                "value": lead.value,
+                "source": lead.source,
+                "status": lead.status,
+            }
+        ),
+        201,
+    )
 
 @app.errorhandler(404)
 def page_not_found(error):

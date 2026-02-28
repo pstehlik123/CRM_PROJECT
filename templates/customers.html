@@ -4,9 +4,9 @@
 <h1>Customers</h1>
 
 {% if current_user.is_admin() %}
-<p>
+<div class="admin-actions">
     <a href="{{ url_for('add_customer') }}" class="btn btn-admin">+ Add Customer</a>
-</p>
+</div>
 {% endif %}
 
 <table class="table">
