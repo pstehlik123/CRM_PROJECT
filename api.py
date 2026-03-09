@@ -4,6 +4,7 @@ from flask_login import current_user
 from models import Customer, Lead
 
 
+# API-Blueprint: bündelt alle REST- und JSON-Endpunkte unter dem Präfix "/api"
 api_bp = Blueprint("api", __name__, url_prefix="/api")
 
 
@@ -20,6 +21,7 @@ def api_get_customers():
       200:
         description: List of customers
     """
+    # Alle Kunden-Objekte per SQLAlchemy holen und in primitive JSON-Struktur umwandeln
     customers = Customer.get_all_customers()
     data = [
         {
@@ -71,9 +73,11 @@ def api_create_customer():
       403:
         description: Admin access required for creating customers
     """
+    # Nur eingeloggte Admin-Benutzer dürfen neue Kunden per API anlegen
     if not current_user.is_authenticated or not current_user.is_admin():
         return jsonify({"message": "Admin access required."}), 403
 
+    # JSON-Body der Anfrage einlesen
     payload = request.get_json(silent=True) or {}
     name = payload.get("name")
     email = payload.get("email")
@@ -81,9 +85,11 @@ def api_create_customer():
     phone = payload.get("phone")
     status = payload.get("status", "prospect")
 
+    # Minimale Validierung der Pflichtfelder
     if not all([name, email, company, phone]):
         return jsonify({"message": "name, email, company and phone are required."}), 400
 
+    # Über das SQLAlchemy-Modell neuen Datensatz in der DB anlegen
     customer = Customer.add_customer(name, email, company, phone, status)
     return (
         jsonify(
@@ -113,6 +119,7 @@ def api_get_leads():
       200:
         description: List of leads
     """
+    # Alle Leads holen und in JSON-Struktur mappen
     leads = Lead.get_all_leads()
     data = [
         {
@@ -165,9 +172,11 @@ def api_create_lead():
       403:
         description: Admin access required for creating leads
     """
+    # Erneut: nur Admins dürfen Leads über die API anlegen
     if not current_user.is_authenticated or not current_user.is_admin():
         return jsonify({"message": "Admin access required."}), 403
 
+    # JSON-Body einlesen
     payload = request.get_json(silent=True) or {}
     name = payload.get("name")
     email = payload.get("email")
@@ -175,14 +184,17 @@ def api_create_lead():
     value = payload.get("value")
     source = payload.get("source")
 
+    # Pflichtfelder prüfen
     if not all([name, email, company, value, source]):
         return jsonify({"message": "name, email, company, value and source are required."}), 400
 
     try:
+        # Wert in Float umwandeln, Fehler werden oben abgefangen
         value_float = float(value)
     except (TypeError, ValueError):
         return jsonify({"message": "value must be a number."}), 400
 
+    # Lead über das SQLAlchemy-Modell speichern
     lead = Lead.add_lead(name, email, company, value_float, source)
     return (
         jsonify(

@@ -8,30 +8,49 @@ from api import api_bp
 from database import init_db
 from flasgger import Swagger
 
+# Haupt-Flask-App erstellen
 app = Flask(__name__)
+# Secret-Key für Sessions und CSRF-Schutz
 app.secret_key = "your-secret-key-change-this"
 
+# -----------------------
+# SQLAlchemy-Konfiguration
+# -----------------------
+# Verbindung zur SQLite-Datenbank, die von SQLAlchemy verwendet wird
 app.config["SQLALCHEMY_DATABASE_URI"] = "sqlite:///crm.db"
+# Optionales Event-System von SQLAlchemy deaktivieren (etwas effizienter)
 app.config["SQLALCHEMY_TRACK_MODIFICATIONS"] = False
 
-# Store session in database (not in cookie)
+# -----------------------
+# Session-Konfiguration
+# -----------------------
+# Sessiondaten in der Datenbank speichern (nicht im Browser-Cookie)
 app.config["SESSION_TYPE"] = "sqlalchemy"
 app.config["SESSION_SQLALCHEMY"] = db
 app.config["SESSION_SQLALCHEMY_TABLE"] = "sessions"
 app.config["SESSION_PERMANENT"] = True
 
+# SQLAlchemy mit dieser Flask-App verbinden
 db.init_app(app)
+# Flask-Session mit SQLAlchemy-Backend initialisieren
 Session(app)
+
+# LoginManager mit der App verbinden, damit current_user & Login funktioniert
 login_manager.init_app(app)
 login_manager.login_view = "auth.login"
 login_manager.login_message = "Please log in to access this page."
 
-# Register Blueprints
+# -----------------------
+# Blueprints & Swagger
+# -----------------------
+# Authentifizierungs-Blueprint und API-Blueprint registrieren
 app.register_blueprint(auth_bp)
 app.register_blueprint(api_bp)
 
+# Flasgger initialisieren → generiert OpenAPI/Swagger-Doku und /apidocs UI
 swagger = Swagger(app)
 
+# Datenbanktabellen erzeugen und Beispieldaten einfügen (falls noch leer)
 init_db(app)
 
 
@@ -56,7 +75,7 @@ def index():
 # Customers (HTML Views)
 # -----------------------
 @app.route('/customers')
-@login_required
+@login_required  # nur eingeloggte Nutzer dürfen die Kundenliste sehen
 def customers():
     return render_template(
         'customers.html',
@@ -65,8 +84,8 @@ def customers():
 
 
 @app.route('/customers/add', methods=['GET', 'POST'])
-@login_required
-@admin_required
+@login_required  # Login erforderlich
+@admin_required  # zusätzlich Admin-Rolle erforderlich
 def add_customer():
     if request.method == 'POST':
         name = request.form.get('name')
@@ -87,7 +106,7 @@ def add_customer():
 
 
 @app.route('/customers/<int:customer_id>')
-@login_required
+@login_required  # Detailseite nur für eingeloggte Nutzer
 def customer_detail(customer_id):
     customer = Customer.get_customer_by_id(customer_id)
     if not customer:
@@ -98,8 +117,8 @@ def customer_detail(customer_id):
 
 
 @app.route('/customers/<int:customer_id>/edit', methods=['GET', 'POST'])
-@login_required
-@admin_required
+@login_required  # Login erforderlich
+@admin_required  # nur Admins dürfen Kundendaten ändern
 def edit_customer(customer_id):
     customer = Customer.get_customer_by_id(customer_id)
     if not customer:
@@ -122,8 +141,8 @@ def edit_customer(customer_id):
 
 
 @app.route('/customers/<int:customer_id>/delete', methods=['POST'])
-@login_required
-@admin_required
+@login_required  # Login erforderlich
+@admin_required  # nur Admins dürfen Kunden löschen
 def delete_customer(customer_id):
     Customer.delete_customer(customer_id)
     flash('Customer deleted successfully!', 'success')
@@ -134,7 +153,7 @@ def delete_customer(customer_id):
 # Leads (HTML Views)
 # -----------------------
 @app.route('/leads')
-@login_required
+@login_required  # Lead-Liste nur für eingeloggte Nutzer
 def leads():
     return render_template(
         'leads.html',
@@ -143,8 +162,8 @@ def leads():
 
 
 @app.route('/leads/add', methods=['GET', 'POST'])
-@login_required
-@admin_required
+@login_required  # Login erforderlich
+@admin_required  # nur Admins dürfen neue Leads anlegen
 def add_lead():
     if request.method == 'POST':
         name = request.form.get('name')
@@ -169,7 +188,7 @@ def add_lead():
 
 
 @app.route('/leads/<int:lead_id>')
-@login_required
+@login_required  # Detailansicht nur mit Login
 def lead_detail(lead_id):
     lead = Lead.get_lead_by_id(lead_id)
     if not lead:
@@ -180,8 +199,8 @@ def lead_detail(lead_id):
 
 
 @app.route('/leads/<int:lead_id>/delete', methods=['POST'])
-@login_required
-@admin_required
+@login_required  # Login erforderlich
+@admin_required  # nur Admins dürfen Leads löschen
 def delete_lead(lead_id):
     Lead.delete_lead(lead_id)
     flash('Lead deleted successfully!', 'success')
