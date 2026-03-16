@@ -14,7 +14,7 @@ app = Flask(__name__)
 app.secret_key = "your-secret-key-change-this"
 
 # -----------------------
-# SQLAlchemy-Konfiguration
+# SQLAlchemy-Konfigurationdsd
 # -----------------------
 # Verbindung zur SQLite-Datenbank, die von SQLAlchemy verwendet wird
 app.config["SQLALCHEMY_DATABASE_URI"] = "sqlite:///crm.db"
