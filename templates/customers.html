@@ -6,6 +6,11 @@
 {% if current_user.is_admin() %}
 <div class="admin-actions">
     <a href="{{ url_for('add_customer') }}" class="btn btn-admin">+ Add Customer</a>
+    <a href="{{ url_for('export_customers_csv') }}" class="btn btn-primary">Export CSV</a>
+    <form method="POST" action="{{ url_for('import_customers_csv') }}" enctype="multipart/form-data" class="inline-form">
+        <input type="file" name="csv_file" accept=".csv" required>
+        <button type="submit" class="btn btn-primary">Import CSV</button>
+    </form>
 </div>
 {% endif %}
 

@@ -1,4 +1,4 @@
-from flask import Flask, render_template, request, redirect, url_for, flash
+from flask import Flask, render_template, request, redirect, url_for, flash, Response
 from flask_login import login_required, current_user
 from flask_session import Session
 from models import db, Customer, Lead
@@ -6,6 +6,7 @@ from models import db, Customer, Lead
 from auth import auth_bp, login_manager, admin_required
 from api import api_bp
 from database import init_db
+from csv_service import CSVService
 from flasgger import Swagger
 
 app = Flask(__name__)
@@ -130,6 +131,38 @@ def delete_customer(customer_id):
     return redirect(url_for('customers'))
 
 
+@app.route('/customers/export')
+@login_required
+@admin_required
+def export_customers_csv():
+    csv_data = CSVService.export_customers()
+    return Response(
+        csv_data,
+        mimetype='text/csv',
+        headers={"Content-Disposition": "attachment; filename=customers.csv"}
+    )
+
+
+@app.route('/customers/import', methods=['POST'])
+@login_required
+@admin_required
+def import_customers_csv():
+    file = request.files.get('csv_file')
+    if not file or not file.filename:
+        flash('Please select a CSV file for import.', 'error')
+        return redirect(url_for('customers'))
+
+    try:
+        imported, skipped = CSVService.import_customers(file)
+        flash(f'Customer import finished. Imported: {imported}, Skipped: {skipped}.', 'success')
+    except ValueError as e:
+        flash(f'Import failed: {e}', 'error')
+    except Exception:
+        flash('Unexpected error while importing customers CSV.', 'error')
+
+    return redirect(url_for('customers'))
+
+
 # -----------------------
 # Leads (HTML Views)
 # -----------------------
@@ -185,6 +218,38 @@ def lead_detail(lead_id):
 def delete_lead(lead_id):
     Lead.delete_lead(lead_id)
     flash('Lead deleted successfully!', 'success')
+    return redirect(url_for('leads'))
+
+
+@app.route('/leads/export')
+@login_required
+@admin_required
+def export_leads_csv():
+    csv_data = CSVService.export_leads()
+    return Response(
+        csv_data,
+        mimetype='text/csv',
+        headers={"Content-Disposition": "attachment; filename=leads.csv"}
+    )
+
+
+@app.route('/leads/import', methods=['POST'])
+@login_required
+@admin_required
+def import_leads_csv():
+    file = request.files.get('csv_file')
+    if not file or not file.filename:
+        flash('Please select a CSV file for import.', 'error')
+        return redirect(url_for('leads'))
+
+    try:
+        imported, skipped = CSVService.import_leads(file)
+        flash(f'Lead import finished. Imported: {imported}, Skipped: {skipped}.', 'success')
+    except ValueError as e:
+        flash(f'Import failed: {e}', 'error')
+    except Exception:
+        flash('Unexpected error while importing leads CSV.', 'error')
+
     return redirect(url_for('leads'))
 
 

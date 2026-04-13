@@ -114,6 +114,19 @@ body {
     margin-bottom: 0.75rem;
     display: flex;
     justify-content: flex-end;
+    align-items: center;
+    gap: 0.6rem;
+    flex-wrap: wrap;
+}
+
+.inline-form {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+.inline-form input[type="file"] {
+    max-width: 220px;
 }
 
 .table {
